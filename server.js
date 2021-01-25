@@ -1,6 +1,7 @@
 const express = require('express');
 const path = require('path');
 const cookieSession = require('cookie-session');
+const createError = require('http-errors');
 
 const FeedbackService = require('./services/FeedbackService');
 const SpeakersService = require('./services/SpeakerService');
@@ -33,9 +34,13 @@ app.locals.siteName = 'ROUX Meetups';
 app.use(express.static(path.join(__dirname, './static')));
 
 app.use(async (request, response, next) => {
-  const names = await speakersService.getNames();
-  response.locals.speakerNames = names;
-  return next();
+  try {
+    const names = await speakersService.getNames();
+    response.locals.speakerNames = names;
+    return next();
+  } catch (error) {
+    return next(error);
+  }
 });
 
 app.use(
@@ -45,6 +50,16 @@ app.use(
     speakersService,
   })
 );
+
+app.use((request, response, next) => next(createError(404, 'File not found')));
+
+app.use((err, request, response, next) => {
+  response.locals.message = err.message;
+  const status = err.status || 500;
+  response.locals.status = status;
+  response.status(status);
+  response.render('error');
+});
 
 app.listen(port, () => {
   console.log(`Express server listening on port ${port}!`);
